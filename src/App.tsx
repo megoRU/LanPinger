@@ -583,7 +583,7 @@ function App() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState("");
-  const [appVersion, setAppVersion] = useState("0.1.0");
+  const [appVersion, setAppVersion] = useState("0.1.1");
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateState, setUpdateState] = useState("Checking for updates");
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
@@ -594,6 +594,7 @@ function App() {
   const sessionIdRef = useRef("");
   const hostInputRef = useRef<HTMLInputElement>(null);
   const tableHeaderRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
   const visibleHistory = useMemo(() => {
     const query = host.trim().toLocaleLowerCase();
     return targetHistory
@@ -604,12 +605,29 @@ function App() {
   const isActive = status === "resolving" || status === "tracing" || status === "running" || status === "stopping";
   const reachedDestination = rows.some((row) => row.status === "destination" && row.lastMs !== null);
   const destinationAnswered = /^Destination answered in \d+ hops$/.test(statusMessage);
-  const visibleStatus = reachedDestination || destinationAnswered
+  const visibleStatus = reachedDestination || destinationAnswered || status === "resolving" || status === "tracing"
     ? ""
     : status === "running" && rows.length > 0
       ? t("monitoringPartial")
       : displayMessage(statusMessage);
   const isIdleView = status === "idle" || status === "stopped";
+
+  useEffect(() => {
+    const scrollContainer = tableScrollRef.current;
+    const headerContainer = tableHeaderRef.current;
+    const bodyTable = scrollContainer?.querySelector<HTMLTableElement>(".route-table");
+    const headerTable = headerContainer?.querySelector<HTMLTableElement>(".route-table");
+    if (!scrollContainer || !headerContainer || !bodyTable || !headerTable) return;
+
+    const syncHeaderWidth = () => {
+      headerTable.style.width = `${bodyTable.getBoundingClientRect().width}px`;
+    };
+    const observer = new ResizeObserver(syncHeaderWidth);
+    observer.observe(scrollContainer);
+    observer.observe(bodyTable);
+    syncHeaderWidth();
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -947,7 +965,7 @@ function App() {
           </table>
         </div>
 
-        <div className="table-scroll" onScroll={(event) => {
+        <div className="table-scroll" ref={tableScrollRef} onScroll={(event) => {
           if (tableHeaderRef.current) tableHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft;
         }}>
           <table className="route-table" aria-label={t("routeOverview")}>
