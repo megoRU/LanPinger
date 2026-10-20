@@ -4,10 +4,12 @@ import path from "node:path";
 const root = path.resolve(process.argv[2] ?? "release-assets");
 const output = path.join(root, "latest.json");
 const packageJson = JSON.parse(await fs.readFile(new URL("../package.json", import.meta.url), "utf8"));
-const tag = process.env.GITHUB_REF_NAME;
+const refName = process.env.GITHUB_REF_NAME;
+const tag = process.env.GITHUB_RELEASE_TAG
+  ?? (refName?.startsWith("v") ? refName : refName === "main" ? `v${packageJson.version}` : null);
 const repository = process.env.GITHUB_REPOSITORY ?? "megoRU/LanPinger";
 if (!tag || tag !== `v${packageJson.version}`) {
-  throw new Error(`Expected tag v${packageJson.version}; got ${tag ?? "no tag"}.`);
+  throw new Error(`Expected release tag v${packageJson.version}; got ${tag ?? refName ?? "no ref"}.`);
 }
 
 async function listFiles(directory) {

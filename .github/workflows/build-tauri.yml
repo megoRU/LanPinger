@@ -166,6 +166,7 @@ jobs:
       - name: Generate and validate updater manifest
         env:
           GITHUB_REF_NAME: v${{ steps.version.outputs.version }}
+          GITHUB_RELEASE_TAG: v${{ steps.version.outputs.version }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           RELEASE_NOTES: ${{ github.event.head_commit.message }}
         run: |
