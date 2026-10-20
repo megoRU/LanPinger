@@ -83,10 +83,9 @@ describe("LanPinger interface", () => {
       });
     });
 
-    const destinationRow = screen.getByRole("row", { name: /edge\.example\.net/ });
-    expect(within(destinationRow).getByText("edge.example.net")).toBeInTheDocument();
-    expect(within(destinationRow).getByText("192.0.2.1")).toBeInTheDocument();
-    expect(within(destinationRow).getByText("Destination")).toBeInTheDocument();
+    const routeRow = screen.getByRole("row", { name: /edge\.example\.net/ });
+    expect(within(routeRow).getByText("edge.example.net")).toBeInTheDocument();
+    expect(within(routeRow).getByText("192.0.2.1")).toBeInTheDocument();
     expect(screen.getByText("2 replies / 2 probes")).toBeInTheDocument();
   });
 

@@ -951,22 +951,37 @@ function App() {
           if (tableHeaderRef.current) tableHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft;
         }}>
           <table className="route-table" aria-label={t("routeOverview")}>
+            <thead className="screen-reader-only">
+              <tr>
+                <th scope="col" className="col-hop">{t("hop")}</th>
+                <th scope="col" className="col-host">{t("host")}</th>
+                <th scope="col" className="col-ip">{t("ipAddress")}</th>
+                <th scope="col" className="numeric col-loss">{t("loss")}</th>
+                <th scope="col" className="numeric col-count">{t("sent")}</th>
+                <th scope="col" className="numeric col-count">{t("received")}</th>
+                <th scope="col" className="numeric col-rtt">{t("best")}</th>
+                <th scope="col" className="numeric col-rtt">{t("average")}</th>
+                <th scope="col" className="numeric col-rtt">{t("worst")}</th>
+                <th scope="col" className="numeric col-rtt">{t("last")}</th>
+                <th scope="col" className="numeric col-rtt">{t("jitter")}</th>
+              </tr>
+            </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={`${row.hop}-${row.ip}`} className={row.status === "destination" ? "destination-row" : ""}>
-                  <td className="hop-number col-hop" aria-label={t("hop")}>{String(row.hop).padStart(2, "0")}</td>
-                  <td className="host-cell col-host" title={row.host} aria-label={t("host")}>{row.host === "*" ? <span className="muted-star">*</span> : row.host}</td>
-                  <td className="ip-cell col-ip" aria-label={t("ipAddress")}>
+                  <td className="hop-number col-hop">{String(row.hop).padStart(2, "0")}</td>
+                  <td className="host-cell col-host" title={row.host}>{row.host === "*" ? <span className="muted-star">*</span> : row.host}</td>
+                  <td className="ip-cell col-ip">
                     {row.ip === "*" ? <span className="muted-star">—</span> : <button type="button" className="ip-copy" onClick={() => void copyIp(row.ip)} title={t("copyIp")}><span>{row.ip}</span><Copy size={12} /></button>}
                   </td>
-                  <td className={`numeric col-loss loss-cell ${row.lossPercent >= 50 ? "loss-high" : row.lossPercent > 0 ? "loss-medium" : "loss-none"}`} aria-label={t("loss")}>{formatLoss(row.lossPercent)}</td>
-                  <td className="numeric col-count mono-cell" aria-label={t("sent")}>{row.sent}</td>
-                  <td className="numeric col-count mono-cell" aria-label={t("received")}>{row.received}</td>
-                  <td className="numeric col-rtt mono-cell" aria-label={t("best")}>{formatMs(row.bestMs)}</td>
-                  <td className="numeric col-rtt mono-cell average-cell" aria-label={t("average")}>{formatMs(row.averageMs)}</td>
-                  <td className="numeric col-rtt mono-cell" aria-label={t("worst")}>{formatMs(row.worstMs)}</td>
-                  <td className={`numeric col-rtt mono-cell ${row.lastMs !== null ? "last-cell" : "muted-cell"}`} aria-label={t("last")}>{formatMs(row.lastMs)}</td>
-                  <td className="numeric col-rtt mono-cell" aria-label={t("jitter")}>{formatMs(row.jitterMs)}</td>
+                  <td className={`numeric col-loss loss-cell ${row.lossPercent >= 50 ? "loss-high" : row.lossPercent > 0 ? "loss-medium" : "loss-none"}`}>{formatLoss(row.lossPercent)}</td>
+                  <td className="numeric col-count mono-cell">{row.sent}</td>
+                  <td className="numeric col-count mono-cell">{row.received}</td>
+                  <td className="numeric col-rtt mono-cell">{formatMs(row.bestMs)}</td>
+                  <td className="numeric col-rtt mono-cell average-cell">{formatMs(row.averageMs)}</td>
+                  <td className="numeric col-rtt mono-cell">{formatMs(row.worstMs)}</td>
+                  <td className={`numeric col-rtt mono-cell ${row.lastMs !== null ? "last-cell" : "muted-cell"}`}>{formatMs(row.lastMs)}</td>
+                  <td className="numeric col-rtt mono-cell">{formatMs(row.jitterMs)}</td>
                 </tr>
               ))}
             </tbody>
