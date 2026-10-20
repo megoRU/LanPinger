@@ -39,7 +39,7 @@
       "icons/icon.ico"
     ],
     "targets": ["nsis", "appimage", "deb", "rpm", "dmg"],
-    "category": "Network",
+    "category": "Utility",
     "shortDescription": "Network route monitor",
     "longDescription": "A compact, continuous ICMP route monitor for IPv4 and IPv6.",
     "createUpdaterArtifacts": false
