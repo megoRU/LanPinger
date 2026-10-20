@@ -622,11 +622,17 @@ function App() {
     const syncHeaderWidth = () => {
       headerTable.style.width = `${bodyTable.getBoundingClientRect().width}px`;
     };
-    const observer = new ResizeObserver(syncHeaderWidth);
-    observer.observe(scrollContainer);
-    observer.observe(bodyTable);
     syncHeaderWidth();
-    return () => observer.disconnect();
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(syncHeaderWidth);
+      observer.observe(scrollContainer);
+      observer.observe(bodyTable);
+      return () => observer.disconnect();
+    }
+
+    // ResizeObserver is not available in every DOM environment (for example jsdom).
+    window.addEventListener("resize", syncHeaderWidth);
+    return () => window.removeEventListener("resize", syncHeaderWidth);
   }, []);
 
   useEffect(() => {
