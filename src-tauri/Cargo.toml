@@ -1,0 +1,28 @@
+[package]
+name = "lanpinger"
+version = "0.1.0"
+description = "A focused network route monitor"
+authors = ["LanPinger contributors"]
+edition = "2021"
+
+[lib]
+name = "lanpinger_lib"
+# This application targets desktop Tauri only; mobile C ABI artifacts are unused.
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tracert = "0.12"
+dns-lookup = "2.1"
+idna = "1.1"
+tokio = { version = "1", features = ["sync", "time", "net", "macros"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_NetworkManagement_IpHelper"] }

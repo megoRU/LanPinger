@@ -1,0 +1,186 @@
+name: Build Tauri
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:frontend
+      - run: npm run build
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: node scripts/check-version.mjs
+      - run: cargo fmt --all -- --check
+        working-directory: src-tauri
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: src-tauri
+      - run: cargo test --all-targets
+        working-directory: src-tauri
+
+  build:
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+          - platform: linux
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            bundles: appimage,deb,rpm
+          - platform: macos
+            os: macos-15
+            target: aarch64-apple-darwin
+            bundles: dmg
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file libayatana-appindicator3-dev librsvg2-dev libssl-dev libwebkit2gtk-4.1-dev libxdo-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - name: Validate release version and signing configuration
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          node scripts/check-version.mjs
+          node scripts/validate-updater-config.mjs
+      - name: Build install packages
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+      - name: Build signed updater artifacts
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npm run tauri -- build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --config src-tauri/tauri.release.conf.json
+      - name: Upload Windows packages
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lanpinger-windows-x64
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Linux packages
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lanpinger-linux-x64
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*
+            src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload macOS packages
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: lanpinger-macos-arm64
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [quality, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: lanpinger-windows-x64
+          path: release-assets/windows
+      - uses: actions/download-artifact@v4
+        with:
+          name: lanpinger-linux-x64
+          path: release-assets/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: lanpinger-macos-arm64
+          path: release-assets/macos
+      - name: Generate and validate updater manifest
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_NOTES: ${{ github.event.head_commit.message }}
+        run: |
+          node scripts/generate-release-manifest.mjs release-assets
+          node scripts/verify-release-manifest.mjs release-assets
+      - name: Create draft release with complete assets
+        id: draft
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: LanPinger ${{ github.ref_name }}
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: release-assets/**/*
+          fail_on_unmatched_files: true
+      - name: Publish release after all assets are attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          IS_PRERELEASE: ${{ contains(github.ref_name, '-') }}
+        run: |
+          release_id=$(gh release view "$TAG" --json databaseId --jq .databaseId)
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false -F prerelease=true -F make_latest=false
+          else
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${release_id}" -F draft=false -F prerelease=false -F make_latest=true
+          fi
