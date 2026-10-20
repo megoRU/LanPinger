@@ -15,8 +15,9 @@ if (new Set(Object.values(versions)).size !== 1 || Object.values(versions).some(
 }
 
 const ref = process.env.GITHUB_REF_NAME;
-if (ref?.startsWith("v") && ref !== `v${packageJson.version}`) {
-  console.error(`Release tag ${ref} must match the app version v${packageJson.version}.`);
+const releaseVersion = ref?.startsWith("v") ? ref.slice(1) : ref;
+if (ref && ref !== "main" && /^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$/.test(releaseVersion) && releaseVersion !== packageJson.version) {
+  console.error(`Release tag ${ref} must match the app version ${packageJson.version}.`);
   process.exit(1);
 }
 console.log(`LanPinger version ${packageJson.version} is consistent.`);
