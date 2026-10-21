@@ -22,10 +22,14 @@ pub fn validate_host(input: &str) -> Result<String, String> {
     }
 
     let normalized = value.strip_suffix('.').unwrap_or(value);
-    if normalized.is_empty() {
+    let (wildcard, domain) = normalized
+        .strip_prefix("*.")
+        .map(|domain| (true, domain))
+        .unwrap_or((false, normalized));
+    if domain.is_empty() {
         return Err("Use an IP address or a valid domain name.".into());
     }
-    let ascii = idna::domain_to_ascii(normalized)
+    let ascii = idna::domain_to_ascii(domain)
         .map_err(|_| "The domain name could not be converted to a valid network name.")?;
     let valid = ascii.split('.').all(|label| {
         !label.is_empty()
@@ -39,7 +43,12 @@ pub fn validate_host(input: &str) -> Result<String, String> {
     if !valid {
         return Err("The host name contains an invalid character.".into());
     }
-    Ok(ascii.to_ascii_lowercase())
+    let ascii = ascii.to_ascii_lowercase();
+    Ok(if wildcard {
+        format!("*.{ascii}")
+    } else {
+        ascii
+    })
 }
 
 pub async fn resolve(host: &str) -> Result<IpAddr, String> {

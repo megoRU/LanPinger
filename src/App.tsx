@@ -11,7 +11,6 @@ import {
   Check,
   CheckCircle2,
   Clock3,
-  CircleAlert,
   Copy,
   Download,
   History,
@@ -21,7 +20,6 @@ import {
   RefreshCw,
   Settings,
   ShieldCheck,
-  Signal,
   Square,
   Sun,
   X,
@@ -83,11 +81,9 @@ const translations = {
     error: "Error",
     idle: "Idle",
     exportResults: "Export results",
-    exportCsv: "Export as CSV",
     exportText: "Export as text",
     settings: "Settings",
     aboutUpdates: "About and updates",
-    aboutUpdatesDescription: "Version information and available updates.",
     routeControls: "Route monitor controls",
     target: "TARGET",
     domainOrIp: "Domain or IP address",
@@ -137,6 +133,7 @@ const translations = {
     checking: "Checking",
     updateVersion: "Update {version}",
     noTelemetry: "No telemetry",
+    updateAvailable: "Update available: {version}",
     preferences: "Preferences",
     preferencesDescription: "Adjust how LanPinger appears and measures.",
     intervalSettingDescription: "Pause between full route sweeps",
@@ -150,16 +147,14 @@ const translations = {
     russian: "Русский",
     english: "English",
     closeSettings: "Close settings",
-    installedVersion: "Installed version",
     checkingUpdates: "Checking for updates",
     upToDate: "You’re up to date",
     versionReady: "Version {version} is ready",
     versionAvailable: "Version {version} available",
     updateCheckFailed: "Update check failed: {details}",
     signedUpdateReady: "A signed update is ready to download and install.",
-    updaterDescription: "Updates are checked through the signed Tauri updater.",
     downloadingUpdate: "Downloading update",
-    checkAgain: "Check again",
+    checkAgain: "Check for updates",
     installRestart: "Install and restart",
     downloadComplete: "Download complete. Restarting…",
     downloadingVersion: "Downloading version {version}…",
@@ -169,7 +164,6 @@ const translations = {
     resolvingDestinationName: "Resolving destination name…",
     stoppingMeasurement: "Stopping the active measurement…",
     clipboardUnavailable: "Clipboard access is unavailable",
-    csvSaved: "CSV export saved",
     textSaved: "Text report saved",
     copied: "Copied {value}",
     statusResolvingDestination: "Resolving the destination name",
@@ -201,11 +195,9 @@ const translations = {
     error: "Ошибка",
     idle: "Ожидание",
     exportResults: "Экспорт результатов",
-    exportCsv: "Экспортировать в CSV",
     exportText: "Экспортировать как текст",
     settings: "Настройки",
     aboutUpdates: "О программе и обновления",
-    aboutUpdatesDescription: "Информация о версии программы и обновлениях.",
     routeControls: "Управление мониторингом маршрута",
     target: "АДРЕС НАЗНАЧЕНИЯ",
     domainOrIp: "Домен или IP-адрес",
@@ -255,6 +247,7 @@ const translations = {
     checking: "Проверка…",
     updateVersion: "Обновить до {version}",
     noTelemetry: "Без телеметрии",
+    updateAvailable: "Доступно обновление {version}",
     preferences: "Параметры",
     preferencesDescription: "Настройте внешний вид и измерения LanPinger.",
     intervalSettingDescription: "Пауза между полными проходами маршрута",
@@ -268,16 +261,14 @@ const translations = {
     russian: "Русский",
     english: "Английский",
     closeSettings: "Закрыть настройки",
-    installedVersion: "Установленная версия",
     checkingUpdates: "Проверка обновлений",
     upToDate: "Установлена последняя версия",
     versionReady: "Версия {version} готова к установке",
     versionAvailable: "Доступна версия {version}",
     updateCheckFailed: "Не удалось проверить обновления: {details}",
     signedUpdateReady: "Подписанное обновление готово к загрузке и установке.",
-    updaterDescription: "Обновления проверяются через подписанный механизм Tauri.",
     downloadingUpdate: "Загрузка обновления",
-    checkAgain: "Проверить ещё раз",
+    checkAgain: "Проверить обновление",
     installRestart: "Установить и перезапустить",
     downloadComplete: "Загрузка завершена. Перезапуск…",
     downloadingVersion: "Загрузка версии {version}…",
@@ -287,7 +278,6 @@ const translations = {
     resolvingDestinationName: "Определяем адрес назначения…",
     stoppingMeasurement: "Останавливаем измерения…",
     clipboardUnavailable: "Буфер обмена недоступен",
-    csvSaved: "CSV-файл сохранён",
     textSaved: "Текстовый отчёт сохранён",
     copied: "Скопировано: {value}",
     statusResolvingDestination: "Определяем имя назначения",
@@ -343,7 +333,6 @@ function localizeMessage(message: string, language: Language): string {
     "Resolving destination name…": "resolvingDestinationName",
     "Stopping the active measurement…": "stoppingMeasurement",
     "Clipboard access is unavailable": "clipboardUnavailable",
-    "CSV export saved": "csvSaved",
     "Text report saved": "textSaved",
     "Resolving the destination name": "statusResolvingDestination",
     "Destination resolved; discovering the route": "statusDiscoveringRoute",
@@ -394,6 +383,11 @@ function formatMs(value: number | null) {
   return value === null ? "—" : `${value.toFixed(1)} ms`;
 }
 
+function normalizeTargetInput(value: string) {
+  const withoutScheme = value.trim().replace(/^https?:\/\/+/i, "").trim();
+  return withoutScheme.split(/[/?#]/, 1)[0].trim().replace(/\/+$/, "");
+}
+
 function formatLoss(value: number) {
   return `${value.toFixed(value % 1 === 0 ? 0 : 1)}%`;
 }
@@ -422,18 +416,17 @@ function russianPlural(value: number, one: string, few: string, many: string) {
   return many;
 }
 
-function csvCell(value: string | number | null) {
-  const stringValue = value === null ? "" : String(value);
-  return `"${stringValue.replaceAll('"', '""')}"`;
-}
-
 function saveDownload(name: string, content: string, type: string) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = name;
+  anchor.style.position = "fixed";
+  anchor.style.left = "-10000px";
+  document.body.appendChild(anchor);
   anchor.click();
+  anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
@@ -452,13 +445,14 @@ interface SettingOption {
 
 interface SettingSelectProps {
   ariaLabel: string;
+  className?: string;
   disabled?: boolean;
   onChange: (value: SettingValue) => void;
   options: SettingOption[];
   value: SettingValue;
 }
 
-function SettingSelect({ariaLabel, disabled = false, onChange, options, value}: SettingSelectProps) {
+function SettingSelect({ariaLabel, className = "", disabled = false, onChange, options, value}: SettingSelectProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -492,7 +486,7 @@ function SettingSelect({ariaLabel, disabled = false, onChange, options, value}: 
   return (
     <div
       ref={rootRef}
-      className={`setting-select ${open ? "is-open" : ""}`}
+      className={`setting-select ${className} ${open ? "is-open" : ""}`}
       onBlur={(event) => {
         if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setOpen(false);
       }}
@@ -583,7 +577,7 @@ function App() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState("");
-  const [appVersion, setAppVersion] = useState("0.1.1");
+  const [appVersion, setAppVersion] = useState("0.1.2");
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateState, setUpdateState] = useState("Checking for updates");
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
@@ -593,8 +587,6 @@ function App() {
   const checkingUpdateRef = useRef(false);
   const sessionIdRef = useRef("");
   const hostInputRef = useRef<HTMLInputElement>(null);
-  const tableHeaderRef = useRef<HTMLDivElement>(null);
-  const tableScrollRef = useRef<HTMLDivElement>(null);
   const visibleHistory = useMemo(() => {
     const query = host.trim().toLocaleLowerCase();
     return targetHistory
@@ -611,29 +603,6 @@ function App() {
       ? t("monitoringPartial")
       : displayMessage(statusMessage);
   const isIdleView = status === "idle" || status === "stopped";
-
-  useEffect(() => {
-    const scrollContainer = tableScrollRef.current;
-    const headerContainer = tableHeaderRef.current;
-    const bodyTable = scrollContainer?.querySelector<HTMLTableElement>(".route-table");
-    const headerTable = headerContainer?.querySelector<HTMLTableElement>(".route-table");
-    if (!scrollContainer || !headerContainer || !bodyTable || !headerTable) return;
-
-    const syncHeaderWidth = () => {
-      headerTable.style.width = `${bodyTable.getBoundingClientRect().width}px`;
-    };
-    syncHeaderWidth();
-    if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(syncHeaderWidth);
-      observer.observe(scrollContainer);
-      observer.observe(bodyTable);
-      return () => observer.disconnect();
-    }
-
-    // ResizeObserver is not available in every DOM environment (for example jsdom).
-    window.addEventListener("resize", syncHeaderWidth);
-    return () => window.removeEventListener("resize", syncHeaderWidth);
-  }, []);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -747,7 +716,8 @@ function App() {
   }, [checkForUpdates]);
 
   const start = async () => {
-    const value = host.trim();
+    const value = normalizeTargetInput(host);
+    setHost(value);
     if (!value) {
       setStatusMessage("Enter a host name or IP address");
       hostInputRef.current?.focus();
@@ -803,21 +773,12 @@ function App() {
     }
   };
 
-  const exportCsv = () => {
-    if (rows.length === 0) return;
-    const columns = [t("hop"), t("host"), t("ipAddress"), `${t("loss")} (%)`, t("sent"), t("received"), `${t("best")} (ms)`, `${t("average")} (ms)`, `${t("worst")} (ms)`, `${t("last")} (ms)`, `${t("jitter")} (ms)`, t("state")];
-    const data = rows.map((row) => [row.hop, row.host, row.ip, row.lossPercent.toFixed(2), row.sent, row.received, row.bestMs, row.averageMs, row.worstMs, row.lastMs, row.jitterMs, displayMessage(row.status)]);
-    const csv = [columns, ...data].map((line) => line.map(csvCell).join(",")).join("\r\n");
-    saveDownload(makeFilename(host, "csv"), `\uFEFF${csv}`, "text/csv;charset=utf-8");
-    setToast("CSV export saved");
-  };
-
   const exportText = () => {
     if (rows.length === 0) return;
     const title = `LanPinger ${t("routeOverview")}\n${t("target")}: ${host} (${resolvedIp || t("unresolved")})\n${t("elapsed")}: ${formatDuration(elapsedMs)}\n\n`;
     const header = [t("hop"), t("host"), t("ipAddress"), t("loss"), t("sent"), t("received"), t("best"), t("average"), t("worst"), t("last"), t("jitter"), t("state")].join("\t");
     const body = rows.map((row) => [row.hop, row.host, row.ip, formatLoss(row.lossPercent), row.sent, row.received, formatMs(row.bestMs), formatMs(row.averageMs), formatMs(row.worstMs), formatMs(row.lastMs), formatMs(row.jitterMs), displayMessage(row.status)].join("\t")).join("\n");
-    saveDownload(makeFilename(host, "txt"), `${title}${header}\n${body}\n`, "text/plain;charset=utf-8");
+    saveDownload(makeFilename(host, "txt"), `\uFEFF${title}${header}\n${body}\n`, "text/plain;charset=utf-8");
     setToast("Text report saved");
   };
 
@@ -872,7 +833,10 @@ function App() {
                 onChange={(event) => setHost(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter" && !isActive) void start(); }}
                 onFocus={() => setHistoryOpen(true)}
-                onBlur={() => window.setTimeout(() => setHistoryOpen(false), 120)}
+                onBlur={() => {
+                  setHost((value) => normalizeTargetInput(value));
+                  window.setTimeout(() => setHistoryOpen(false), 120);
+                }}
                 placeholder={t("domainOrIp")}
                 autoComplete="off"
                 spellCheck={false}
@@ -931,7 +895,6 @@ function App() {
               <ArrowDownToLine size={17} />
             </button>
             <div className="export-popover">
-              <button type="button" onClick={exportCsv}>{t("exportCsv")} <span>.csv</span></button>
               <button type="button" onClick={exportText}>{t("exportText")} <span>.txt</span></button>
             </div>
           </div>
@@ -951,31 +914,9 @@ function App() {
           </div>
         </div>
 
-        <div className="table-header-clip" ref={tableHeaderRef} aria-hidden="true">
-          <table className="route-table">
-            <thead>
-              <tr>
-                <th className="col-hop">{t("hop")}</th>
-                <th className="col-host">{t("host")}</th>
-                <th className="col-ip">{t("ipAddress")}</th>
-                <th className="numeric col-loss">{t("loss")}</th>
-                <th className="numeric col-count">{t("sent")}</th>
-                <th className="numeric col-count">{t("received")}</th>
-                <th className="numeric col-rtt">{t("best")}</th>
-                <th className="numeric col-rtt">{t("average")}</th>
-                <th className="numeric col-rtt">{t("worst")}</th>
-                <th className="numeric col-rtt">{t("last")}</th>
-                <th className="numeric col-rtt">{t("jitter")}</th>
-              </tr>
-            </thead>
-          </table>
-        </div>
-
-        <div className="table-scroll" ref={tableScrollRef} onScroll={(event) => {
-          if (tableHeaderRef.current) tableHeaderRef.current.scrollLeft = event.currentTarget.scrollLeft;
-        }}>
+        <div className="table-scroll">
           <table className="route-table" aria-label={t("routeOverview")}>
-            <thead className="screen-reader-only">
+            <thead>
               <tr>
                 <th scope="col" className="col-hop">{t("hop")}</th>
                 <th scope="col" className="col-host">{t("host")}</th>
@@ -1012,11 +953,6 @@ function App() {
           </table>
           {rows.length === 0 && (
             <div className="empty-state">
-              <div className="empty-visual">
-                <span className="empty-orbit orbit-a" />
-                <span className="empty-orbit orbit-b" />
-                <div className="empty-icon"><Signal size={24} /></div>
-              </div>
               <h2>{status === "error" ? t("traceCouldNotStart") : isActive ? t("discoveringRoute") : t("noRouteData")}</h2>
               <p>{status === "error" ? displayMessage(statusMessage) : isActive ? t("discoveringDescription") : t("emptyDescription")}</p>
               {!isActive && status !== "error" && <button type="button" className="text-action" onClick={() => hostInputRef.current?.focus()}>{t("enterTarget")} <span>↗</span></button>}
@@ -1029,6 +965,7 @@ function App() {
       <footer className="app-footer">
         <div className="footer-left"><span className="footer-brand">LanPinger</span><span>v{appVersion}</span><span className="footer-separator" /><span>{t("localDiagnostics")}</span></div>
         <div className="footer-right">
+          {update && <button type="button" className="footer-link footer-update-link" onClick={() => setSettingsOpen(true)}>{t("updateAvailable", {version: `v${update.version}`})}</button>}
           <span className="footer-privacy"><ShieldCheck size={14} /> {t("noTelemetry")}</span>
         </div>
       </footer>
@@ -1061,6 +998,7 @@ function App() {
             <div className="setting-row">
               <div><strong>{t("language")}</strong><span>{t("languageDescription")}</span></div>
               <SettingSelect
+                className="language-select"
                 ariaLabel={t("language")}
                 value={languagePreference}
                 onChange={(value) => setLanguagePreference(value as LanguagePreference)}
@@ -1072,26 +1010,27 @@ function App() {
               />
             </div>
             <section className="settings-update-section" aria-label={t("aboutUpdates")}>
-              <div className="settings-update-heading">
-                <div><strong>{t("aboutUpdates")}</strong><span>{t("aboutUpdatesDescription")}</span></div>
-                <span className="settings-installed-version">{t("installedVersion")}: v{appVersion}</span>
-              </div>
-              <div className="update-block settings-update-block">
-                <div className="update-state-icon">
-                  {update ? <Download size={16} /> : checkingUpdate ? <RefreshCw size={16} className="spin" /> : updateState.startsWith("You’re") ? <CheckCircle2 size={16} /> : <CircleAlert size={16} />}
+              <div className="settings-update-row">
+                <div className="settings-update-copy">
+                  <div className="settings-update-title"><strong>LanPinger</strong><span>v{appVersion}</span></div>
+                  <span className={`settings-update-status${update ? " is-available" : ""}`}>
+                    {update ? t("versionAvailable", {version: update.version}) : displayMessage(updateState)}
+                  </span>
+                  {update && <span className="settings-update-details">{update.body || t("signedUpdateReady")}</span>}
                 </div>
-                <div className="update-copy">
-                  <strong>{update ? t("versionAvailable", {version: update.version}) : displayMessage(updateState)}</strong>
-                  <span>{update ? (update.body || t("signedUpdateReady")) : t("updaterDescription")}</span>
+                <div className="settings-update-actions">
+                  <button type="button" className={update ? "primary-button" : "secondary-button"} onClick={() => update ? void installUpdate() : void checkForUpdates()} disabled={checkingUpdate || installingUpdate}>
+                    {update ? <Download size={14} /> : <RefreshCw size={14} className={checkingUpdate ? "spin" : ""} />}
+                    {update ? (installingUpdate ? t("downloadingUpdate") : t("installRestart")) : (checkingUpdate ? t("checking") : t("checkAgain"))}
+                  </button>
                 </div>
               </div>
-              {updateProgress !== null && <div className="download-progress"><div><span>{t("downloadingUpdate")}</span><span>{updateLength ? `${Math.min(100, Math.round(updateProgress / updateLength * 100))}%` : `${Math.round(updateProgress / 1_000_000)} MB`}</span></div><div className="progress-track"><span style={{ width: `${updateLength ? Math.min(100, updateProgress / updateLength * 100) : 0}%` }} /></div></div>}
-              <div className="settings-update-actions">
-                <button type="button" className="secondary-button" onClick={() => void checkForUpdates()} disabled={checkingUpdate || installingUpdate}>
-                  <RefreshCw size={14} className={checkingUpdate ? "spin" : ""} />{checkingUpdate ? t("checking") : t("checkAgain")}
-                </button>
-                {update && <button type="button" className="primary-button" onClick={() => void installUpdate()} disabled={installingUpdate}><Download size={14} />{installingUpdate ? t("downloadingUpdate") : t("installRestart")}</button>}
-              </div>
+              {updateProgress !== null && (
+                <div className="download-progress">
+                  <div><span>{t("downloadingUpdate")}</span><span>{updateLength ? `${Math.min(100, Math.round(updateProgress / updateLength * 100))}%` : `${Math.round(updateProgress / 1_000_000)} MB`}</span></div>
+                  <div className="progress-track"><span style={{ width: `${updateLength ? Math.min(100, updateProgress / updateLength * 100) : 0}%` }} /></div>
+                </div>
+              )}
             </section>
           </section>
         </div>

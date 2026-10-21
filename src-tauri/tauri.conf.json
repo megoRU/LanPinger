@@ -16,6 +16,8 @@
         "title": "LanPinger",
         "width": 1280,
         "height": 800,
+        "minWidth": 960,
+        "minHeight": 600,
         "backgroundColor": "#0d1113",
         "decorations": true,
         "visible": false,

@@ -1,6 +1,6 @@
 [package]
 name = "lanpinger"
-version = "0.1.1"
+version = "0.1.2"
 description = "A focused network route monitor"
 authors = ["LanPinger contributors"]
 edition = "2021"
