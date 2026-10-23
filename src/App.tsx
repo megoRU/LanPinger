@@ -82,6 +82,10 @@ const translations = {
     idle: "Idle",
     exportResults: "Export results",
     exportText: "Export as text",
+    textSaveFolder: "Text report folder",
+    textSaveFolderDescription: "Folder where exported TXT reports are saved",
+    textSaveFolderPlaceholder: "Enter a folder path",
+    textSaveFolderRequired: "Set a folder path in Settings first",
     settings: "Settings",
     aboutUpdates: "About and updates",
     routeControls: "Route monitor controls",
@@ -196,6 +200,10 @@ const translations = {
     idle: "Ожидание",
     exportResults: "Экспорт результатов",
     exportText: "Экспортировать как текст",
+    textSaveFolder: "Папка для TXT-отчётов",
+    textSaveFolderDescription: "Папка, в которую сохраняются текстовые отчёты",
+    textSaveFolderPlaceholder: "Укажите путь к папке",
+    textSaveFolderRequired: "Сначала укажите путь к папке в настройках",
     settings: "Настройки",
     aboutUpdates: "О программе и обновления",
     routeControls: "Управление мониторингом маршрута",
@@ -416,20 +424,6 @@ function russianPlural(value: number, one: string, few: string, many: string) {
   return many;
 }
 
-function saveDownload(name: string, content: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = name;
-  anchor.style.position = "fixed";
-  anchor.style.left = "-10000px";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-}
-
 function makeFilename(host: string, extension: string) {
   const safeHost = host.trim().replace(/[^a-z0-9.-]+/gi, "_").slice(0, 80) || "route";
   const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
@@ -577,7 +571,8 @@ function App() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState("");
-  const [appVersion, setAppVersion] = useState("0.1.2");
+  const [appVersion, setAppVersion] = useState("0.1.3");
+  const [textSaveFolder, setTextSaveFolder] = useState(() => localStorage.getItem("lanpinger.text-save-folder") ?? "");
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateState, setUpdateState] = useState("Checking for updates");
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
@@ -773,13 +768,22 @@ function App() {
     }
   };
 
-  const exportText = () => {
+  const exportText = async () => {
     if (rows.length === 0) return;
+    if (!textSaveFolder.trim()) {
+      setToast("Set a folder path in Settings first");
+      setSettingsOpen(true);
+      return;
+    }
     const title = `LanPinger ${t("routeOverview")}\n${t("target")}: ${host} (${resolvedIp || t("unresolved")})\n${t("elapsed")}: ${formatDuration(elapsedMs)}\n\n`;
     const header = [t("hop"), t("host"), t("ipAddress"), t("loss"), t("sent"), t("received"), t("best"), t("average"), t("worst"), t("last"), t("jitter"), t("state")].join("\t");
     const body = rows.map((row) => [row.hop, row.host, row.ip, formatLoss(row.lossPercent), row.sent, row.received, formatMs(row.bestMs), formatMs(row.averageMs), formatMs(row.worstMs), formatMs(row.lastMs), formatMs(row.jitterMs), displayMessage(row.status)].join("\t")).join("\n");
-    saveDownload(makeFilename(host, "txt"), `\uFEFF${title}${header}\n${body}\n`, "text/plain;charset=utf-8");
-    setToast("Text report saved");
+    try {
+      await invoke("save_text_report", {directory: textSaveFolder, filename: makeFilename(host, "txt"), contents: `\uFEFF${title}${header}\n${body}\n`});
+      setToast("Text report saved");
+    } catch (error) {
+      setToast(String(error));
+    }
   };
 
   const installUpdate = async () => {
@@ -977,6 +981,10 @@ function App() {
               <div className="modal-icon"><Settings size={18} /></div>
               <div><h2 id="settings-title">{t("preferences")}</h2><p>{t("preferencesDescription")}</p></div>
               <button type="button" className="modal-close" aria-label={t("closeSettings")} onClick={() => setSettingsOpen(false)}><X size={17} /></button>
+            </div>
+            <div className="setting-row">
+              <div><strong>{t("textSaveFolder")}</strong><span>{t("textSaveFolderDescription")}</span></div>
+              <input className="text-path-input" aria-label={t("textSaveFolder")} placeholder={t("textSaveFolderPlaceholder")} value={textSaveFolder} onChange={(event) => { setTextSaveFolder(event.target.value); localStorage.setItem("lanpinger.text-save-folder", event.target.value); }} />
             </div>
             <div className="setting-row">
               <div><strong>{t("traceIntervalTitle")}</strong><span>{t("intervalSettingDescription")}</span></div>

@@ -963,6 +963,23 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     font-size: 13px;
 }
 
+.text-path-input {
+    width: min(300px, 52%);
+    min-width: 180px;
+    padding: 9px 11px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+}
+
+.text-path-input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .settings-update-section {
     padding: 12px 0 0;
     border-top: 1px solid var(--line-subtle);

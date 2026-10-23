@@ -6,6 +6,8 @@ mod windows_trace;
 
 use monitor::MonitorRegistry;
 use serde::Serialize;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 use tauri::{Emitter, Manager, State};
 
@@ -55,6 +57,21 @@ async fn resolve_host(host: String) -> Result<HostResolution, String> {
     })
 }
 
+#[tauri::command]
+fn save_text_report(directory: String, filename: String, contents: String) -> Result<(), String> {
+    let directory = directory.trim();
+    if directory.is_empty() {
+        return Err("Choose a folder for text reports in Settings".into());
+    }
+    let filename = PathBuf::from(filename);
+    if filename.components().count() != 1 || filename.file_name().is_none() {
+        return Err("Invalid report filename".into());
+    }
+    let directory = PathBuf::from(directory);
+    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    fs::write(directory.join(filename), contents).map_err(|error| error.to_string())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState::default())
@@ -70,7 +87,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             start_monitoring,
             stop_monitoring,
-            resolve_host
+            resolve_host,
+            save_text_report
         ])
         .build(tauri::generate_context!())
         .expect("failed to build LanPinger")
