@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Permissions for the LanPinger main window",
   "windows": ["main"],
-  "permissions": ["core:default", "core:window:allow-show", "updater:default", "process:allow-restart"]
+  "permissions": ["core:default", "core:window:allow-show", "updater:default", "process:allow-restart", "dialog:allow-open"]
 }

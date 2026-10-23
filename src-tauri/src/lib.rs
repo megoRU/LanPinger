@@ -72,10 +72,16 @@ fn save_text_report(directory: String, filename: String, contents: String) -> Re
     fs::write(directory.join(filename), contents).map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn get_home_directory(app: tauri::AppHandle) -> Result<String, String> {
+    app.path().home_dir().map(|path| path.to_string_lossy().into_owned()).map_err(|error| error.to_string())
+}
+
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState::default())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             window_position::restore(app.handle());
@@ -88,7 +94,8 @@ pub fn run() {
             start_monitoring,
             stop_monitoring,
             resolve_host,
-            save_text_report
+            save_text_report,
+            get_home_directory
         ])
         .build(tauri::generate_context!())
         .expect("failed to build LanPinger")

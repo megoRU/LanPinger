@@ -964,8 +964,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 
 .text-path-input {
-    width: min(300px, 52%);
-    min-width: 180px;
+    width: 100%;
+    min-width: 0;
     padding: 9px 11px;
     color: var(--text);
     background: var(--surface);
@@ -973,6 +973,17 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     border-radius: 8px;
     font: inherit;
     font-size: 13px;
+}
+
+.text-path-control {
+    display: flex;
+    width: min(360px, 58%);
+    min-width: 220px;
+    gap: 7px;
+}
+
+.text-path-browse {
+    flex: 0 0 auto;
 }
 
 .text-path-input:focus {

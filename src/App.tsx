@@ -4,9 +4,11 @@ import {listen, type UnlistenFn} from "@tauri-apps/api/event";
 import {getVersion} from "@tauri-apps/api/app";
 import {getCurrentWindow} from "@tauri-apps/api/window";
 import {relaunch} from "@tauri-apps/plugin-process";
+import {open as openDialog} from "@tauri-apps/plugin-dialog";
 import {check, type Update} from "@tauri-apps/plugin-updater";
 import {
   ArrowDownToLine,
+  FolderOpen,
   ChevronDown,
   Check,
   CheckCircle2,
@@ -85,7 +87,6 @@ const translations = {
     textSaveFolder: "Text report folder",
     textSaveFolderDescription: "Folder where exported TXT reports are saved",
     textSaveFolderPlaceholder: "Enter a folder path",
-    textSaveFolderRequired: "Set a folder path in Settings first",
     settings: "Settings",
     aboutUpdates: "About and updates",
     routeControls: "Route monitor controls",
@@ -169,6 +170,7 @@ const translations = {
     stoppingMeasurement: "Stopping the active measurement…",
     clipboardUnavailable: "Clipboard access is unavailable",
     textSaved: "Text report saved",
+    textSavedIn: "Saved in: {path}",
     copied: "Copied {value}",
     statusResolvingDestination: "Resolving the destination name",
     statusDiscoveringRoute: "Destination resolved; discovering the route",
@@ -200,10 +202,9 @@ const translations = {
     idle: "Ожидание",
     exportResults: "Экспорт результатов",
     exportText: "Экспортировать как текст",
-    textSaveFolder: "Папка для TXT-отчётов",
+    textSaveFolder: "Папка для TXT отчётов",
     textSaveFolderDescription: "Папка, в которую сохраняются текстовые отчёты",
     textSaveFolderPlaceholder: "Укажите путь к папке",
-    textSaveFolderRequired: "Сначала укажите путь к папке в настройках",
     settings: "Настройки",
     aboutUpdates: "О программе и обновления",
     routeControls: "Управление мониторингом маршрута",
@@ -287,6 +288,7 @@ const translations = {
     stoppingMeasurement: "Останавливаем измерения…",
     clipboardUnavailable: "Буфер обмена недоступен",
     textSaved: "Текстовый отчёт сохранён",
+    textSavedIn: "Сохранено в папку: {path}",
     copied: "Скопировано: {value}",
     statusResolvingDestination: "Определяем имя назначения",
     statusDiscoveringRoute: "Адрес определён; ищем маршрут",
@@ -430,6 +432,23 @@ function makeFilename(host: string, extension: string) {
   return `lanpinger-${safeHost}-${stamp}.${extension}`;
 }
 
+function formatTextTable(headers: string[], rows: Array<Array<string | number>>) {
+  const values = rows.map((row) => row.map(String));
+  const widths = headers.map((header, column) =>
+    Math.max(header.length, ...values.map((row) => row[column]?.length ?? 0)),
+  );
+  const formatRow = (row: string[]) => `│ ${row.map((value, column) => value.padEnd(widths[column])).join(" │ ")} │`;
+  const border = (left: string, middle: string, right: string) =>
+    `${left}${widths.map((width) => "─".repeat(width + 2)).join(middle)}${right}`;
+  return [
+    border("┌", "┬", "┐"),
+    formatRow(headers),
+    border("├", "┼", "┤"),
+    ...values.map(formatRow),
+    border("└", "┴", "┘"),
+  ].join("\n");
+}
+
 type SettingValue = string | number;
 
 interface SettingOption {
@@ -571,8 +590,15 @@ function App() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState("");
-  const [appVersion, setAppVersion] = useState("0.1.3");
+  const [appVersion, setAppVersion] = useState("1.1.4");
   const [textSaveFolder, setTextSaveFolder] = useState(() => localStorage.getItem("lanpinger.text-save-folder") ?? "");
+  useEffect(() => {
+    if (textSaveFolder) return;
+    void invoke<string>("get_home_directory").then((home) => {
+      setTextSaveFolder(home);
+      localStorage.setItem("lanpinger.text-save-folder", home);
+    }).catch((error) => console.error("Unable to resolve home directory", error));
+  }, [textSaveFolder]);
   const [update, setUpdate] = useState<Update | null>(null);
   const [updateState, setUpdateState] = useState("Checking for updates");
   const [updateProgress, setUpdateProgress] = useState<number | null>(null);
@@ -776,11 +802,12 @@ function App() {
       return;
     }
     const title = `LanPinger ${t("routeOverview")}\n${t("target")}: ${host} (${resolvedIp || t("unresolved")})\n${t("elapsed")}: ${formatDuration(elapsedMs)}\n\n`;
-    const header = [t("hop"), t("host"), t("ipAddress"), t("loss"), t("sent"), t("received"), t("best"), t("average"), t("worst"), t("last"), t("jitter"), t("state")].join("\t");
-    const body = rows.map((row) => [row.hop, row.host, row.ip, formatLoss(row.lossPercent), row.sent, row.received, formatMs(row.bestMs), formatMs(row.averageMs), formatMs(row.worstMs), formatMs(row.lastMs), formatMs(row.jitterMs), displayMessage(row.status)].join("\t")).join("\n");
+    const headers = [t("hop"), t("host"), t("ipAddress"), t("loss"), t("sent"), t("received"), t("best"), t("average"), t("worst"), t("last"), t("jitter"), t("state")];
+    const values = rows.map((row) => [row.hop, row.host, row.ip, formatLoss(row.lossPercent), row.sent, row.received, formatMs(row.bestMs), formatMs(row.averageMs), formatMs(row.worstMs), formatMs(row.lastMs), formatMs(row.jitterMs), displayMessage(row.status)]);
+    const body = formatTextTable(headers, values);
     try {
-      await invoke("save_text_report", {directory: textSaveFolder, filename: makeFilename(host, "txt"), contents: `\uFEFF${title}${header}\n${body}\n`});
-      setToast("Text report saved");
+      await invoke("save_text_report", {directory: textSaveFolder, filename: makeFilename(host, "txt"), contents: `\uFEFF${title}${body}\n`});
+      setToast(t("textSavedIn", {path: textSaveFolder}));
     } catch (error) {
       setToast(String(error));
     }
@@ -984,7 +1011,16 @@ function App() {
             </div>
             <div className="setting-row">
               <div><strong>{t("textSaveFolder")}</strong><span>{t("textSaveFolderDescription")}</span></div>
-              <input className="text-path-input" aria-label={t("textSaveFolder")} placeholder={t("textSaveFolderPlaceholder")} value={textSaveFolder} onChange={(event) => { setTextSaveFolder(event.target.value); localStorage.setItem("lanpinger.text-save-folder", event.target.value); }} />
+              <div className="text-path-control">
+                <input className="text-path-input" aria-label={t("textSaveFolder")} placeholder={t("textSaveFolderPlaceholder")} value={textSaveFolder} onChange={(event) => { setTextSaveFolder(event.target.value); localStorage.setItem("lanpinger.text-save-folder", event.target.value); }} />
+                <button className="icon-button text-path-browse" type="button" aria-label={t("textSaveFolder")} title={t("textSaveFolder")} onClick={async () => {
+                  const selected = await openDialog({directory: true, multiple: false, defaultPath: textSaveFolder || undefined});
+                  if (typeof selected === "string") {
+                    setTextSaveFolder(selected);
+                    localStorage.setItem("lanpinger.text-save-folder", selected);
+                  }
+                }}><FolderOpen size={16} /></button>
+              </div>
             </div>
             <div className="setting-row">
               <div><strong>{t("traceIntervalTitle")}</strong><span>{t("intervalSettingDescription")}</span></div>
