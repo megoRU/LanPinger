@@ -74,7 +74,10 @@ fn save_text_report(directory: String, filename: String, contents: String) -> Re
 
 #[tauri::command]
 fn get_home_directory(app: tauri::AppHandle) -> Result<String, String> {
-    app.path().home_dir().map(|path| path.to_string_lossy().into_owned()).map_err(|error| error.to_string())
+    app.path()
+        .home_dir()
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|error| error.to_string())
 }
 
 pub fn run() {
