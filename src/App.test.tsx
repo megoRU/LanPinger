@@ -16,6 +16,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: harness.invoke }));
 vi.mock("@tauri-apps/api/app", () => ({ getVersion: async () => "0.1.0" }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ show: harness.showWindow }) }));
 vi.mock("@tauri-apps/plugin-process", () => ({ relaunch: vi.fn() }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-updater", () => ({ check: async () => null }));
 vi.mock("@tauri-apps/api/event", () => ({
   listen: async (name: string, handler: EventHandler) => {
@@ -28,7 +29,7 @@ describe("LanPinger interface", () => {
   beforeEach(async () => {
     harness.handlers = {};
     harness.invoke.mockReset();
-    harness.invoke.mockImplementation(async (command: string) => command === "start_monitoring" ? "session-1" : undefined);
+    harness.invoke.mockImplementation(async (command: string) => command === "start_monitoring" ? "session-1" : command === "get_home_directory" ? "/home/test" : undefined);
     harness.showWindow.mockReset().mockResolvedValue(undefined);
     localStorage.clear();
     render(<App />);
@@ -90,7 +91,11 @@ describe("LanPinger interface", () => {
   });
 
   it("shows Rust validation and network errors without filling the table", async () => {
-    harness.invoke.mockRejectedValueOnce("The host name contains an invalid character.");
+    harness.invoke.mockImplementation(async (command: string) => {
+      if (command === "start_monitoring") throw "The host name contains an invalid character.";
+      if (command === "get_home_directory") return "/home/test";
+      return undefined;
+    });
     fireEvent.change(screen.getByRole("textbox", { name: "Host name or IP address" }), { target: { value: "bad;host" } });
     fireEvent.click(screen.getByRole("button", { name: "Start" }));
 
