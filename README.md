@@ -13,15 +13,15 @@ LanPinger is a lightweight desktop app for monitoring network routes in real tim
 
 ---
 
-## ⬇️ Download v1.1.4
+## ⬇️ Download v1.1.5
 
 |  Platform  |  Architecture  | Download                                                                                                   |
 |:----------:|:--------------:|:-----------------------------------------------------------------------------------------------------------|
-| 🪟 Windows |      x64       | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.4/LanPinger_1.1.4_x64-setup.exe)  |
-|  🐧 Linux  |   x64 (DEB)    | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.4/LanPinger_1.1.4_amd64.deb)      |
-|  🐧 Linux  |   x64 (RPM)    | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.4/LanPinger-1.1.4-x86_64.rpm)     |
-|  🐧 Linux  | x64 (AppImage) | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.4/LanPinger_1.1.4_amd64.AppImage) |
-|  🍎 macOS  |     ARM64      | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.4/LanPinger_1.1.4_aarch64.dmg)    |
+| 🪟 Windows |      x64       | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.5/LanPinger_1.1.5_x64-setup.exe)  |
+|  🐧 Linux  |   x64 (DEB)    | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.5/LanPinger_1.1.5_amd64.deb)      |
+|  🐧 Linux  |   x64 (RPM)    | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.5/LanPinger-1.1.5-x86_64.rpm)     |
+|  🐧 Linux  | x64 (AppImage) | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.5/LanPinger_1.1.5_amd64.AppImage) |
+|  🍎 macOS  |     ARM64      | [**Download**](https://github.com/megoRU/LanPinger/releases/download/1.1.5/LanPinger_1.1.5_aarch64.dmg)    |
 
 ---
 

@@ -603,7 +603,7 @@ function App() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState("");
-  const [appVersion, setAppVersion] = useState("1.1.4");
+  const [appVersion, setAppVersion] = useState("1.1.5");
   const [textSaveFolder, setTextSaveFolder] = useState(() => localStorage.getItem("lanpinger.text-save-folder") ?? "");
   useEffect(() => {
     if (textSaveFolder) return;
