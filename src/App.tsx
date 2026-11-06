@@ -8,6 +8,7 @@ import {open as openDialog} from "@tauri-apps/plugin-dialog";
 import {check, type Update} from "@tauri-apps/plugin-updater";
 import {
   ArrowDownToLine,
+  Activity,
   FolderOpen,
   ChevronDown,
   Check,
@@ -106,6 +107,12 @@ const translations = {
     routeStatistics: "Route statistics",
     elapsed: "Elapsed",
     routeOverview: "Route overview",
+    networkMonitor: "Network route monitor",
+    thisDevice: "This device",
+    destinationLatency: "Destination latency",
+    packetLoss: "Destination loss",
+    hops: "Hops",
+    latencyUnit: "ms",
     livePathTo: "Live path to {host}",
     startTracePrompt: "Start a trace to discover each network hop",
     replies: "replies",
@@ -224,6 +231,12 @@ const translations = {
     routeStatistics: "Статистика маршрута",
     elapsed: "Время",
     routeOverview: "Маршрут",
+    networkMonitor: "Мониторинг сетевого маршрута",
+    thisDevice: "Это устройство",
+    destinationLatency: "Задержка до цели",
+    packetLoss: "Потери до цели",
+    hops: "Узлы",
+    latencyUnit: "мс",
     livePathTo: "Текущий маршрут до {host}",
     startTracePrompt: "Запустите трассировку, чтобы увидеть сетевые узлы",
     replies: "ответов",
@@ -633,6 +646,9 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("lanpinger.theme", theme);
+    void invoke("set_window_theme", {dark: theme === "dark"}).catch((error: unknown) => {
+      console.error("Unable to update the native window theme:", error);
+    });
   }, [theme]);
 
   useEffect(() => {
@@ -848,10 +864,16 @@ function App() {
   const probeUnit = language === "ru"
     ? russianPlural(stats.totalSent, "проба", "пробы", "проб")
     : t("probes");
+  const destination = rows.find((row) => row.status === "destination");
+  const routeHops = rows.filter((row) => row.status !== "stale");
 
   return (
     <main className="app-shell">
       <header className="topbar">
+        <div className="app-identity">
+          <span className="app-mark"><Activity size={22} strokeWidth={1.8} /></span>
+          <div><strong>LanPinger</strong><span>{t("networkMonitor")}</span></div>
+        </div>
         <div className="topbar-center">
           <div className="target-field-wrap header-target-field-wrap">
             <label className="field-label header-target-label" htmlFor="target">{t("target")}</label>
@@ -917,7 +939,6 @@ function App() {
               <Square size={13} fill="currentColor" /> {t("stop")}
             </button>
           )}
-          {!isIdleView && visibleStatus && <span className="status-copy" title={displayMessage(statusMessage)}>{visibleStatus}</span>}
         </div>
 
         <div className="toolbar-actions">
@@ -933,6 +954,34 @@ function App() {
         </div>
       </header>
 
+      <section className="route-summary" aria-label={t("routeControls")}>
+        <div className="route-summary-heading">
+          <span className={`session-state ${isActive ? "is-active" : ""} ${status === "error" ? "is-error" : ""}`}>
+            <span className="live-dot" />
+            {status === "running" ? t("monitoring") : status === "resolving" ? t("resolving") : status === "tracing" ? t("tracing") : status === "stopping" ? t("stopping") : status === "error" ? t("error") : t("ready")}
+          </span>
+          <span className="session-interval"><RefreshCw size={13} />{t("traceIntervalTitle")}: {formatInterval(intervalMs, language)}</span>
+        </div>
+        <div className="route-summary-body">
+          <div className="route-path">
+            <div className="path-endpoint"><span className="path-device"><Network size={20} /></span><span>{t("thisDevice")}</span></div>
+            <div className={`path-connection ${isActive ? "is-active" : ""}`} aria-hidden="true">
+              <span className="path-line" />
+              {routeHops.length > 0 ? <div className="path-hops">{routeHops.map((row) => (
+                <span key={`${row.hop}-${row.ip}`} className={`path-hop path-hop-${row.status}`} title={`${row.hop}: ${row.ip} · ${displayMessage(row.status)}`}>{row.hop}</span>
+              ))}</div> : <span className="path-waiting"><span /><span /><span /></span>}
+            </div>
+            <div className="path-endpoint path-target"><span className={`path-device ${reachedDestination ? "is-reached" : ""}`}><Activity size={20} /></span><strong title={host || t("target")}>{host || t("domainOrIp")}</strong><span className="path-address">{resolvedIp || "IPv4 / IPv6"}</span></div>
+          </div>
+          <dl className="session-metrics">
+            <div><dt>{t("elapsed")}</dt><dd>{formatDuration(elapsedMs)}</dd></div>
+            <div><dt>{t("destinationLatency")}</dt><dd>{formatMs(destination?.lastMs ?? null)}<small>{t("latencyUnit")}</small></dd></div>
+            <div><dt>{t("packetLoss")}</dt><dd className={destination && destination.lossPercent > 0 ? "metric-warning" : ""}>{destination ? formatLoss(destination.lossPercent) : "—"}</dd></div>
+          </dl>
+        </div>
+        {!isIdleView && visibleStatus && <p className="status-copy" title={displayMessage(statusMessage)}>{visibleStatus}</p>}
+      </section>
+
       <section className="route-panel" aria-label={t("routeStatistics")}>
         <div className="table-heading">
           <div>
@@ -940,6 +989,7 @@ function App() {
             <p>{resolvedIp ? t("livePathTo", {host: host || resolvedIp}) : t("startTracePrompt")}</p>
           </div>
           <div className="table-meta">
+            {routeHops.length > 0 && <span className="hop-count">{t("hops")}: {routeHops.length}</span>}
             {rows.length > 0 && <span className="sample-count">{stats.totalReceived.toLocaleString(language === "ru" ? "ru-RU" : "en-US")} {replyUnit} / {stats.totalSent.toLocaleString(language === "ru" ? "ru-RU" : "en-US")} {probeUnit}</span>}
             {status === "running" && <span className="monitoring-badge"><span className="live-dot" />{t("live")}</span>}
           </div>
@@ -965,7 +1015,7 @@ function App() {
             <tbody>
               {rows.map((row) => (
                 <tr key={`${row.hop}-${row.ip}`} className={row.status === "destination" ? "destination-row" : ""}>
-                  <td className="hop-number col-hop">{String(row.hop).padStart(2, "0")}</td>
+                  <td className="hop-number col-hop"><span className={`hop-indicator hop-indicator-${row.status}`} title={displayMessage(row.status)} />{String(row.hop).padStart(2, "0")}</td>
                   <td className="host-cell col-host" title={row.host}>{row.host === "*" ? <span className="muted-star">*</span> : row.host}</td>
                   <td className="ip-cell col-ip">
                     {row.ip === "*" ? <span className="muted-star">—</span> : <button type="button" className="ip-copy" onClick={() => void copyIp(row.ip)} title={t("copyIp")}><span>{row.ip}</span><Copy size={12} /></button>}
@@ -984,9 +1034,10 @@ function App() {
           </table>
           {rows.length === 0 && (
             <div className="empty-state">
+              <div className="empty-network" aria-hidden="true"><span /><Network size={30} strokeWidth={1.4} /><span /></div>
               <h2>{status === "error" ? t("traceCouldNotStart") : isActive ? t("discoveringRoute") : t("noRouteData")}</h2>
               <p>{status === "error" ? displayMessage(statusMessage) : isActive ? t("discoveringDescription") : t("emptyDescription")}</p>
-              {!isActive && status !== "error" && <button type="button" className="text-action" onClick={() => hostInputRef.current?.focus()}>{t("enterTarget")} <span>↗</span></button>}
+              {!isActive && status !== "error" && <button type="button" className="text-action" onClick={() => hostInputRef.current?.focus()}>{t("enterTarget")}</button>}
               {isActive && <div className="empty-progress"><span /><span /><span /></div>}
             </div>
           )}

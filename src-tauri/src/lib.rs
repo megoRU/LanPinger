@@ -1,6 +1,7 @@
 mod monitor;
 mod target;
 mod window_position;
+mod window_theme;
 #[cfg(windows)]
 mod windows_trace;
 
@@ -89,6 +90,7 @@ pub fn run() {
         .setup(|app| {
             window_position::restore(app.handle());
             if let Some(window) = app.get_webview_window("main") {
+                window_theme::apply(&window, true)?;
                 window_position::watch(window, app.handle().clone());
             }
             Ok(())
@@ -98,7 +100,8 @@ pub fn run() {
             stop_monitoring,
             resolve_host,
             save_text_report,
-            get_home_directory
+            get_home_directory,
+            window_theme::set_window_theme
         ])
         .build(tauri::generate_context!())
         .expect("failed to build LanPinger")

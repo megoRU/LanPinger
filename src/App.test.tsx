@@ -110,4 +110,14 @@ describe("LanPinger interface", () => {
     fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
     await waitFor(() => expect(harness.invoke).toHaveBeenCalledWith("start_monitoring", { host: "192.0.2.8", intervalMs: 1_000 }));
   });
+
+  it("keeps the native titlebar in sync with the selected appearance", async () => {
+    expect(harness.invoke).toHaveBeenCalledWith("set_window_theme", { dark: true });
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Light" }));
+
+    await waitFor(() => expect(harness.invoke).toHaveBeenCalledWith("set_window_theme", { dark: false }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(localStorage.getItem("lanpinger.theme")).toBe("light");
+  });
 });

@@ -10,6 +10,10 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 1420,
     strictPort: true,
+    watch: {
+      // Cargo owns this tree; watching locked Windows build artifacts crashes Vite.
+      ignored: ["**/src-tauri/**"],
+    },
   },
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {
